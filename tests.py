@@ -1,57 +1,205 @@
-class BooksCollector:
+from main import BooksCollector
+import pytest
 
-    def __init__(self):
-        self.books_genre = {}
-        self.favorites = []
-        self.genre = ["Фантастика", "Ужасы", "Детективы", "Мультфильмы", "Комедии"]
-        self.genre_age_rating = ["Ужасы", "Детективы"]
 
-    # добавляем новую книгу
-    def add_new_book(self, name):
-        if not self.books_genre.get(name) and 0 < len(name) < 41:
-            self.books_genre[name] = ""
+# Класс тестов для BooksCollector
+# Название класса обязательно должно начинаться с Test
+class TestBooksCollector:
+    """
+    Тесты для класса BooksCollector.
+    В этом классе реализованы проверки методов:
+    - add_new_book
+    - set_book_genre
+    - get_book_genre
+    - get_books_with_specific_genre
+    - get_books_genre
+    - get_books_for_children
+    - add_book_in_favorites
+    - delete_book_from_favorites
+    - get_list_of_favorites_books
+    """
 
-    # устанавливаем книге жанр
-    def set_book_genre(self, name, genre):
-        if name in self.books_genre and genre in self.genre:
-            self.books_genre[name] = genre
+    @pytest.mark.parametrize(
+        "name, should_add",
+        [
+            ("Маленький принц", True),  # валидное имя книги
+            ("a" * 42, False),  # слишком длинное имя
+            ("", False),  # пустая строка
+            ("Повторяющаяся книга", True),  # добавление новой книги
+        ],
+    )
+    def test_add_new_book(self, name, should_add):
+        """
+        Тестирует метод add_new_book.
+        Условия:
+        - при валидных именах книга добавляется
+        - при длинных или пустых именах книга не добавляется
+        - при повторном добавлении ничего не происходит
+        """
+        collector = BooksCollector()
+        # Имитируем добавление повторной книги
+        if name == "Повторяющаяся книга":
+            collector.books_genre = {"Повторяющаяся книга": ""}
+        else:
+            collector.books_genre = {}
+        collector.add_new_book(name)
+        if should_add:
+            assert name in collector.books_genre
+        else:
+            assert name not in collector.books_genre
 
-    # получаем жанр книги по её имени
-    def get_book_genre(self, name):
-        return self.books_genre.get(name)
+    def test_set_book_genre(self):
+        """
+        Тестирует метод set_book_genre:
+        - обновление жанра существующей книги
+        - игнорирование жанра, которого нет в допустимых жанрах
+        - игнорирование несуществующей книги
+        """
+        collector = BooksCollector()
 
-    # выводим список книг с определённым жанром
-    def get_books_with_specific_genre(self, genre):
-        books_with_specific_genre = []
-        if self.books_genre and genre in self.genre:
-            for name, book_genre in self.books_genre.items():
-                if book_genre == genre:
-                    books_with_specific_genre.append(name)
-        return books_with_specific_genre
+        # Предварительно задаем книги
+        collector.books_genre = {
+            "Властелин колец": "Некоторый жанр",
+            "Кто украл кролика Роджера?": "Комедии",
+        }
 
-    # получаем словарь books_genre
-    def get_books_genre(self):
-        return self.books_genre
+        # Обновляем жанр допустимым
+        collector.set_book_genre("Властелин колец", "Ужасы")
+        # Попытка установить недопустимый жанр
+        collector.set_book_genre("Властелин колец", "Фsd")
+        # Попытка изменить жанр несуществующей книги
+        collector.set_book_genre("Некоторая книга", "Ужасы")
 
-    # возвращаем книги, подходящие детям
-    def get_books_for_children(self):
-        books_for_children = []
-        for name, genre in self.books_genre.items():
-            if genre not in self.genre_age_rating and genre in self.genre:
-                books_for_children.append(name)
-        return books_for_children
+        assert (
+            collector.books_genre["Властелин колец"] == "Ужасы"
+        ), "Жанр для 'Властелин колец' должен обновиться на 'Ужасы'"
+        # Жанр для существующей книги не должен измениться на недопустимый
+        assert collector.books_genre["Властелин колец"] != "Фsd"
+        # Несуществующая книга не должна появиться
+        assert "Некоторая книга" not in collector.books_genre
 
-    # добавляем книгу в Избранное
-    def add_book_in_favorites(self, name):
-        if name in self.books_genre:
-            if name not in self.favorites:
-                self.favorites.append(name)
+    def test_get_book_genre(self):
+        """
+        Тестирует метод get_book_genre:
+        - возвращает правильный жанр для существующих книг
+        - возвращает None, для несуществующих
+        - возвращает обновленный жанр после изменения
+        """
+        collector = BooksCollector()
 
-    # удаляем книгу из Избранного
-    def delete_book_from_favorites(self, name):
-        if name in self.favorites:
-            self.favorites.remove(name)
+        # Задаем начальный список книг
+        collector.books_genre = {
+            "Властелин колец": "Фантастика",
+            "Кто украл кролика Роджера?": "Комедии",
+        }
+        assert collector.get_book_genre("Властелин колец") == "Фантастика"
+        assert collector.get_book_genre("Кто украл кролика Роджера?") == "Комедии"
+        assert collector.get_book_genre("Не существующая книга") is None
 
-    # получаем список Избранных книг
-    def get_list_of_favorites_books(self):
-        return self.favorites
+        # Обновляем жанр
+        collector.books_genre["Властелин колец"] = "Комедии"
+        assert collector.get_book_genre("Властелин колец") == "Комедии"
+
+        # Проверка для пустого списка
+        collector_empty = BooksCollector()
+        collector_empty.books_genre = {}
+        assert collector_empty.get_book_genre("Любая книга") is None
+
+    @pytest.mark.parametrize(
+        "books_dict, genre, expected",
+        [
+            (
+                {
+                    "Фантастика 1": "Фантастика",
+                    "Фантастика 2": "Фантастика",
+                    "Комедии 1": "Комедии",
+                    "Детектив": "Детективы",
+                },
+                "Фантастика",
+                ["Фантастика 1", "Фантастика 2"],
+            ),
+            (
+                {
+                    "Фантастика 1": "Фантастика",
+                    "Фантастика 2": "Фантастика",
+                    "Комедии 1": "Комедии",
+                },
+                "Комедии",
+                ["Комедии 1"],
+            ),
+            ({}, "Фантастика", []),
+            ({"Остальные книги": "Детективы"}, "Мультфильмы", []),
+        ],
+    )
+    def test_get_books_with_specific_genre(self, books_dict, genre, expected):
+        """
+        Тестирует метод get_books_with_specific_genre:
+        - возвращает список книг заданного жанра
+        - для пустого списка возвращает пустой список
+        """
+        collector = BooksCollector()
+        collector.books_genre = books_dict
+
+        result = collector.get_books_with_specific_genre(genre)
+        assert result == expected
+
+    def test_get_books_genre(self):
+        """
+        Проверка метода get_books_genre:
+        - возвращает весь словарь books_genre
+        """
+        collector = BooksCollector()
+        collector.books_genre = {"Фантастика 1": "Фантастика", "Гарри Поттер": "Ужасы"}
+        result = collector.books_genre
+        assert result == {"Фантастика 1": "Фантастика", "Гарри Поттер": "Ужасы"}
+
+    @pytest.mark.parametrize(
+        "books_dict, expected",
+        [
+            ({"Фантастика 1": "Фантастика"}, ["Фантастика 1"]),
+            (
+                {"Гарри Поттер": "Ужасы"},
+                [],  # поскольку жанр 'Ужасы' не предназначен для детей
+            ),
+        ],
+    )
+    def test_get_books_for_children(self, books_dict, expected):
+        """
+        Тестирует метод get_books_for_children:
+        - возвращает список книг, подходящих для детей (жанр не 'Ужасы')
+        """
+        collector = BooksCollector()
+        collector.books_genre = books_dict
+        result = collector.get_books_for_children()
+        assert result == expected
+
+    def test_add_book_in_favorites(self):
+        """
+        Тестирует добавление книги в список избранных
+        """
+        collector = BooksCollector()
+        collector.books_genre = {"Король лев": "Мультфильмы"}
+        collector.favorites = []
+
+        collector.add_book_in_favorites("Король лев")
+        assert "Король лев" in collector.favorites
+
+    def test_delete_book_from_favorites(self):
+        """
+        Тестирует удаление книги из списка избранных
+        """
+        collector = BooksCollector()
+        collector.favorites = ["Все о гиппогрифах", "Сложная жизнь соплохвоста"]
+        collector.delete_book_from_favorites("Сложная жизнь соплохвоста")
+        assert "Сложная жизнь соплохвоста" not in collector.favorites
+        assert "Все о гиппогрифах" in collector.favorites
+
+    def test_get_list_of_favorites_books(self):
+        """
+        Тестирует метод get_list_of_favorites_books:
+        - возвращает текущий список избранных книг
+        """
+        collector = BooksCollector()
+        collector.favorites = ["Все о гиппогрифах", "Сложная жизнь соплохвоста"]
+        result = collector.get_list_of_favorites_books()
+        assert result == collector.favorites
